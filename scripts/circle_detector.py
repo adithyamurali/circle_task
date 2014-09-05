@@ -18,7 +18,7 @@ import RavenDebridement.foam_util as Util
 from scipy.optimize import leastsq
 
 DEBUG = True
-USE_SAVED_IMAGES = True
+USE_SAVED_IMAGES = False
 
 class CircleDetector:
     def __init__(self):
@@ -29,14 +29,14 @@ class CircleDetector:
 
         #========SUBSCRIBERS========#
         # image subscribers
-        rospy.Subscriber("/AD/left/image_rect_color", Image,
+        rospy.Subscriber("/BC/left/image_rect_color", Image,
                          self.left_image_callback, queue_size=1)
-        rospy.Subscriber("/AD/right/image_rect_color", Image,
+        rospy.Subscriber("/BC/right/image_rect_color", Image,
                          self.right_image_callback, queue_size=1)
         # info subscribers
-        rospy.Subscriber("/AD/left/camera_info",
+        rospy.Subscriber("/BC/left/camera_info",
                          CameraInfo, self.left_info_callback)
-        rospy.Subscriber("/AD/right/camera_info",
+        rospy.Subscriber("/BC/right/camera_info",
                          CameraInfo, self.right_info_callback)
 
 
@@ -77,11 +77,15 @@ class CircleDetector:
         processed_image = self.process_image()
 
     def process_image(self):
+        rospy.loginfo("Processing image...")
         if self.left_image is None or self.right_image is None:
             return # because we need both images
 
         left_points = self.get_circle_edge_points(self.left_image.copy())
-        right_points = self.get_circle_edge_points(self.right_image.copy())
+        right_points = self.get_circle_edge_points(self.right_image.copy(), seed = left_points[0])
+
+        left_points = left_points[1:]
+        right_points = right_points[1:]
         # left_points = right_points
 
         # get the 3d points from the left and right points
@@ -101,7 +105,7 @@ class CircleDetector:
         # project the ellipse points back to 3d and transform back to global frame
         ellipse_points_3d = [tfx.point([0, a[0], a[1]]) for a in ellipse_points]
         # for a in ellipse_points_3d:
-        #     a.frame = 'left_AD'
+        #     a.frame = 'left_BC'
         # print ellipse_points_3d
         ellipse_points_3d = [normal.as_transform()*a for a in ellipse_points_3d] # convert back to global frame
 
@@ -131,7 +135,7 @@ class CircleDetector:
         return (center,left,right,top,bottom)
 
 
-    def get_circle_edge_points(self, image):
+    def get_circle_edge_points(self, image, seed=None):
         # threshold the image
         threshold = 40
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -143,6 +147,10 @@ class CircleDetector:
         thresholded_image = cv2.dilate(thresholded_image, dilation_kernel)
         thresholded_image = cv2.dilate(thresholded_image, dilation_kernel)
 
+        # if DEBUG:
+        #     debug_image = thresholded_image
+        
+        #     self.image_publisher(debug_image, self.thresh_image_pub)
 
         contours, contour_hierarchy = cv2.findContours(thresholded_image.copy(),cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
 
@@ -195,7 +203,11 @@ class CircleDetector:
         # topmost = tuple(contour[contour[:,:,1].argmin()][0])
         # bottommost = tuple(contour[contour[:,:,1].argmax()][0])
 
+
+
         def get_corresponding_point(mid_leftmost, delta):
+            if seed is not None:
+                mid_leftmost = seed
             """ helper function that intersects a line with the contour at a delta away from the leftmost point to 
                 generate 2 more correspondence points """
             # get two points above
@@ -206,14 +218,12 @@ class CircleDetector:
             line_image[mid_leftmost[1]-delta, :] = 255
             intersect_image = cv2.bitwise_and(contour_image, line_image) # intersection between contour and horizontal line
             top_contours, contour_hierarchy = cv2.findContours(intersect_image.copy(),cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-            return [tuple(top_contours[0][0][0]), tuple(top_contours[1][0][0])]
+            return [tuple(top_contours[1][0][0]), tuple(top_contours[0][0][0])]
 
 
         # generating additional points along the circle
         extreme_points = [mid_leftmost, mid_rightmost]
-        for i in range(-100, 101, 20):
-            if i==0:
-                continue
+        for i in range(-80, 81, 15):
             extreme_points = extreme_points + get_corresponding_point(mid_leftmost, i)
 
         if DEBUG:
@@ -289,7 +299,7 @@ class CircleDetector:
         tbRot = tfx.tb_angles(rotMat).matrix
         quat = tfx.tb_angles(tbRot).quaternion
         position = [x_list[0], y_list[0], z_list[0]]
-        pose = tfx.pose(position, quat, frame='left_AD')
+        pose = tfx.pose(position, quat, frame='left_BC')
         
         if DEBUG:
             self.leastsq_plane_pub.publish(pose.msg.PoseStamped())
