@@ -13,38 +13,58 @@ from std_msgs.msg import Float32
 from rospy import Time
 
 def main():
-`
     bag = rosbag.Bag(sys.argv[1])
 
     output_bag_name = sys.argv[2]
 
-    pose_topic = '/dvrk_psm1/joint_position_cartesian'
-    gripper_angle_topic = '/dvrk_psm1/gripper_position'
+    # pose_topic = '/dvrk_psm1/joint_position_cartesian'
+    # gripper_angle_topic = '/dvrk_psm1/gripper_position'
 
-    pose_and_angle_tuples = {}
-    currTime = None
+    # pose_and_angle_tuples = {}
+    # i = 0
+
+    pose_topic_R = '/dvrk_psm1/joint_position_cartesian'
+    gripper_angle_topic_R = '/dvrk_psm1/gripper_position'
+
+    pose_topic_L = '/dvrk_psm2/joint_position_cartesian'
+    gripper_angle_topic_L = '/dvrk_psm2/gripper_position'
+
+    pose_and_angle_tuples_R = {}
+    pose_and_angle_tuples_L = {}
     i = 0
+    j = 0
+    curr_angle_R = None
+    curr_pose_R = None
+    curr_angle_L = None
+    curr_pose_L = None
 
-    full_traj = {}
+    for topic, msg, t in bag.read_messages(topics=[pose_topic_R, gripper_angle_topic_R, 
+        pose_topic_L, gripper_angle_topic_L]):
+        if topic == gripper_angle_topic_R:
+            curr_angle_R = msg.data
+        elif topic == pose_topic_R:
+            curr_pose_R = tfx.pose(msg)
+        elif topic == gripper_angle_topic_L:
+            curr_angle_L = msg.data
+        else:
+            curr_pose_L = tfx.pose(msg)
 
-    for topic, msg, t in bag.read_messages(topics=[pose_topic, gripper_angle_topic]):
-        if topic == pose_topic:
-            currPose = tfx.pose(msg)
-        if topic == gripper_angle_topic:
-            pair = (currPose, msg.data)
-            pose_and_angle_tuples[i] = pair
+        if curr_pose_R != None and curr_angle_R != None:
+            pair = (curr_pose_R, curr_angle_R)
+            pose_and_angle_tuples_R[i] = pair
             i += 1
+            curr_angle_R = None
+            curr_pose_R = None
 
-    # Robot State is a list of tuple(Pose, Gripper Open Angle)
-    list_pose_and_angle =  []
-    for value in pose_and_angle_tuples.values():
-        list_pose_and_angle.append(value)
-
-    # rand_pose = (tfx.random_pose().msg.PoseStamped(), 1.0)
-    # list_robot_state = [rand_pose, rand_pose]
+        if curr_pose_L != None and curr_angle_L != None:
+            pair = (curr_pose_L, curr_angle_L)
+            pose_and_angle_tuples_L[j] = pair
+            j += 1
+            curr_angle_L = None
+            curr_pose_L = None
+    traj = (pose_and_angle_tuples_L.values(), pose_and_angle_tuples_R.values())
     # IPython.embed()
-
-    pickle.dump(list_pose_and_angle, open(output_bag_name, 'wb' ))
+    pickle.dump(traj, open(output_bag_name, 'wb' ))
 
     bag.close()
 

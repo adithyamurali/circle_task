@@ -17,14 +17,16 @@ from davinci_trajectory.raven_arm import RavenArm
 from follow_right_arm import Follower
 
 class MasterClass:
-    def __init__(self, traj, left_arm):
+    def __init__(self, traj):
         print "Master SM Circle"
         rospy.init_node('Master_SM_Circle',anonymous=False)
         self.state_machine = smach.StateMachine(outcomes=['SUCCESS'])
         self.davinciArmRight = RavenArm(raven_constants.Arm.Right)
-        # self.davinciArmRight = None
-        self.setup_state_machine(traj, left_arm)
-
+        self.davinciArmLeft = RavenArm(raven_constants.Arm.Left)
+        self.davinciArmLeft.start()
+        self.left_arm = Follower(traj[0], self.davinciArmLeft)
+        print "Follower started"
+        self.setup_state_machine(traj[1], self.left_arm)
     def setup_state_machine(self, traj, left_arm):
         smach.loginfo("Initializing state machine")
         rospy.sleep(1)
@@ -41,10 +43,10 @@ class MasterClass:
                 transitions={'success':'WARP'})
             smach.StateMachine.add('WARP',
                 Warp(self.davinciArmRight, traj, left_arm),
-                transitions={'success':'GRASP_GAUZE'})
+                transitions={'success':'GRASP_GAUZE'}, remapping ={'new_traj_R':'sm_data1'})
             smach.StateMachine.add('GRASP_GAUZE',
                 GraspGauze(self.davinciArmRight, traj, left_arm),
-                transitions={'success':'CHECK_GRASP'})
+                transitions={'success':'CHECK_GRASP'}, remapping ={'new_traj_R':'sm_data1'})
             smach.StateMachine.add('CHECK_GRASP',
                 CheckGrasp(self.davinciArmRight),
                 transitions={'success':'EXECUTE_NOTCH_CUT'})
@@ -66,7 +68,7 @@ class MasterClass:
 
             smach.StateMachine.add('EXECUTE_NOTCH_CUT',
                 ExecuteNotchCut(self.davinciArmRight, traj, left_arm),
-                transitions={'success':'CHECK_NOTCH'})
+                transitions={'success':'CHECK_NOTCH'}, remapping ={'new_traj_R':'sm_data1'})
 
             smach.StateMachine.add('CHECK_NOTCH',
                 CheckNotch(self.davinciArmRight),
@@ -76,11 +78,11 @@ class MasterClass:
 
             smach.StateMachine.add('EXECUTE_PARTIAL_TRAJ_2',
                 ExecutePartialTraj2(self.davinciArmRight, traj, left_arm),
-                transitions={'complete':'TRANSFER'})
+                transitions={'complete':'TRANSFER'}, remapping ={'new_traj_R':'sm_data1'})
 
             smach.StateMachine.add('TRANSFER',
                 PhaseTransfer(self.davinciArmRight, traj, left_arm),
-                transitions={'success':'EXECUTE_PARTIAL_TRAJ_3'})
+                transitions={'success':'EXECUTE_PARTIAL_TRAJ_3'}, remapping ={'new_traj_R':'sm_data1'})
 
             # smach.StateMachine.add('EXECUTE_PARTIAL_TRAJ_2',
             #     ExecutePartialTraj2(self.davinciArmRight, traj, left_arm),
@@ -104,7 +106,7 @@ class MasterClass:
             # ------ Phase 3 -----
             smach.StateMachine.add('EXECUTE_PARTIAL_TRAJ_3',
                 ExecutePartialTraj3(self.davinciArmRight, traj, left_arm),
-                transitions={'abridged_state_machine':'SUCCESS'})
+                transitions={'abridged_state_machine':'SUCCESS'}, remapping ={'new_traj_R':'sm_data1'})
 
             # smach.StateMachine.add('EXECUTE_PARTIAL_TRAJ_3',
             #     ExecutePartialTraj3(self.davinciArmRight, traj, left_arm),
@@ -147,8 +149,8 @@ class MasterClass:
 def get_full_traj():
     traj_L = {}
     traj_R = {}
-    file_prefix = "traj/teleop4_"
-    for i in range(6):
+    file_prefix = "traj/teleop5_"
+    for i in range(8):
         if i != 0:
             pickle_file_name = file_prefix + str(i) + '.p'
             traj_L[i]= pickle.load(open(pickle_file_name, 'rb'))[0]
@@ -157,20 +159,27 @@ def get_full_traj():
     return traj
 
 def main():
+    # print "Started main"
+    # smach.loginfo("Starting main...")
+    # # traj = get_full_traj()
+    # traj = (1, 1)
+    # print "Loaded traj"
+    # dummy_left_arm = None
+    # right_arm = MasterClass(traj[1], dummy_left_arm)
+    # davinciArmLeft = RavenArm(raven_constants.Arm.Left)
+    # davinciArmLeft.start()
+    # left_arm = Follower(traj[0], davinciArmLeft)
+    # print "Follower started"
+    # print "Master created"
+    # right_arm.run()
     print "Started main"
     smach.loginfo("Starting main...")
     traj = get_full_traj()
-    # IPython.embed()
-    # traj = (1,1)
+    # traj = (1, 1)
     print "Loaded traj"
-    davinciArmLeft = RavenArm(raven_constants.Arm.Left)
-    davinciArmLeft.start()
-    left_arm = Follower(traj[0], davinciArmLeft)
-    print "Follower started"
+    master = MasterClass(traj)
     print "Master created"
-    right_arm = MasterClass(traj[1], left_arm)
-    right_arm.run()
-
+    master.run()
 
 if __name__ == '__main__':
     main()
