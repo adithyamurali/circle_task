@@ -127,6 +127,22 @@ class MasterClass:
             #     MoveBelow3(self.davinciArmRight),
             #     transitions={'success':'CHECK_POSITION_3'})
 
+            # smach.StateMachine.add('LIFT_GAUZE',
+            #     LiftGauze(self.davinciArmRight, traj, left_arm),
+            #     transitions={'success':'CHECK_COMPLETE_CUT'})
+
+            # smach.StateMachine.add('CHECK_COMPLETE_CUT',
+            #     CheckCompleteCut(self.davinciArmRight, traj, left_arm),
+            #     transitions={'success':'SUCCESS', 'failure':'IDENTIFT_LAST_CUT_POINT'})
+
+            # smach.StateMachine.add('IDENTIFT_LAST_CUT_POINT',
+            #     IdentifyLastCutPoint(self.davinciArmRight, traj, left_arm),
+            #     transitions={'success':'CUT_LAST'})
+
+            # smach.StateMachine.add('CUT_LAST',
+            #     CutLast(self.davinciArmRight, traj, left_arm),
+            #     transitions={'success':'LIFT_GAUZE'})
+
     def run(self):
         self.davinciArmRight.start()
         rospy.sleep(2)

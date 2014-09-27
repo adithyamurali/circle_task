@@ -88,8 +88,16 @@ class Warp(MasterClass):
     def circle_position_cb(self, data):
         self.circle_1 = tfx.pose(data.markers[0].pose)
         self.A = self.circle_1.as_tf() * self.circle_0.inverse().as_tf()
+        self.A.position.z = 0
 
     def warp_traj_left(self):
+        M = self.B_L.as_tf() * self.A.as_tf() * self.B_L.inverse().as_tf()
+        M.from_frame = None
+        M.to_frame = None
+        print "left arm transform: ", M
+        print "A: ", self.A
+        print "B_L: ", self.B_L
+        M.position.z += 0.001
         curr_traj = self.left_arm.traj
         new_traj = {}
         for i in range(8):
@@ -98,12 +106,8 @@ class Warp(MasterClass):
                 j = 0
                 for pair in curr_traj[i]:
                     if j % 20 == 0:
-                        a = self.B_L.as_tf() * self.A.as_tf() * self.B_L.inverse().as_tf()
-                        a.from_frame = None
-                        a.to_frame = None
-                        # IPython.embed()
-                        a.position.z = 0
-                        new_pose = a * pair[0]
+                        new_pose = M * pair[0]
+                        # new_pose = pair[0]
                         new_pose.frame = "one_remote_center_link"
                         new_pair = (new_pose, pair[1])
                         new_list_of_pairs.append(new_pair)
@@ -120,6 +124,15 @@ class Warp(MasterClass):
         self.left_arm.traj = new_traj
 
     def warp_traj_right(self):
+        IPython.embed()
+        M = self.B_R.as_tf() * self.A.as_tf() * self.B_R.inverse().as_tf()
+        M.from_frame = None
+        M.to_frame = None
+        print "right arm transform: ", M
+        print "B_R: ", self.B_R
+        M1 = tfx.transform(M, copy = True)
+        M.position.z += 0.001
+        M1.position.z += -0.001
         curr_traj = self.traj
         new_traj = {}
         for i in range(8):
@@ -127,13 +140,12 @@ class Warp(MasterClass):
                 new_list_of_pairs = []
                 j = 0
                 for pair in curr_traj[i]:
-                    if j % 20 == 0:                    
-                        a = self.B_R.as_tf() * self.A.as_tf() * self.B_R.inverse().as_tf()
-                        a.from_frame = None
-                        a.to_frame = None
-                        # IPython.embed()
-                        a.position.z = 0
-                        new_pose = a * pair[0]
+                    if j % 20 == 0:
+                        if i == 2:
+                            new_pose = M1 * pair[0]
+                        else:
+                            new_pose = M * pair[0]
+                        # new_pose = pair[0]
                         new_pose.frame = "two_remote_center_link"
                         new_pair = (new_pose, pair[1])
                         new_list_of_pairs.append(new_pair)
@@ -188,10 +200,14 @@ class Warp(MasterClass):
 
 
     def execute(self, userdata):
-        self.warp_traj_left()
+        print "execute warp"
+        IPython.embed()
         new_traj_R = self.warp_traj_right()
+        print "warping right trajectory"
+        self.warp_traj_left()
+        print "warping left trajectory"
         userdata.new_traj_R = new_traj_R
-        self.publish_traj_ros(new_traj_R, 1)
+        # self.publish_traj_ros(new_traj_R, 1)
         # IPython.embed()
         # self.publish_traj_ros(new_traj_R, 2)
         # self.publish_traj_ros(new_traj_R, 3)
@@ -232,7 +248,8 @@ class GraspGauze(MasterClass):
         return
 
     def execute(self, userdata):
-        print "R - 1"
+        print "ready to execute"
+        rospy.sleep(2)
         self.left_arm_executing = True
         self.pub.publish(1)
         self.davinciArmRight.executeStampedPoseGripperTrajectory(userdata.new_traj_R[1])
@@ -417,9 +434,18 @@ class ExecutePartialTraj3(MasterClass):
         self.sub = rospy.Subscriber("/circle/command_complete", Bool, self.phase_cb)
         self.pub = rospy.Publisher("/circle/command_left", Int16)
         self.pub2 = rospy.Publisher("/circle/sm_complete", Bool)
+        self.sub2 = rospy.Subscriber("/circle_cut/cut_completion", Bool, self.check_final_cut_cb)
+
         self.left_arm_executing = False
         self.traj = traj
         self.left_arm = left_arm
+        self.final_cut = False
+        self.pub3 = rospy.Publisher("circle_cut/capture_after_image", Bool)
+
+    def check_final_cut_cb(self, msg):
+        if msg.data == True:
+            print "There is a final cut left"
+            self.final_cut = True
 
     def phase_cb(self, msg):
         print "Left Arm executing? - ", msg
@@ -430,6 +456,21 @@ class ExecutePartialTraj3(MasterClass):
             rospy.sleep(0.2)
         return
 
+    def execute_final_cut(self):
+        for _ in range(6):
+            currPose = self.davinciArmRight.getGripperPose()
+            self.davinciArmRight.setGripperPositionDaVinci(1)
+            self.davinciArmRight.goToGripperPose(currPose)
+            rospy.sleep(0.5)
+            currPose.position.y += 0.005
+            # currPose.position.x += -0.003
+            currPose.position.z += 0.001
+            self.davinciArmRight.goToGripperPose(currPose)
+            currPose = self.davinciArmRight.getGripperPose()
+            self.davinciArmRight.setGripperPositionDaVinci(-2)
+            self.davinciArmRight.goToGripperPose(currPose)
+            rospy.sleep(0.5)
+
     def execute(self, userdata):
         self.left_arm_executing = True
         self.pub.publish(5)
@@ -437,23 +478,89 @@ class ExecutePartialTraj3(MasterClass):
         rospy.sleep(1)
         self.wait()
 
-        rospy.sleep(1)
-        self.left_arm_executing = True
-        self.pub.publish(6)
-        self.davinciArmRight.executeStampedPoseGripperTrajectory(userdata.new_traj_R[6])
-        rospy.sleep(1)
-        self.wait()
+        # This section previously made few extra cuts and retracted the gauze up and away
+        # rospy.sleep(1)
+        # self.left_arm_executing = True
+        # self.pub.publish(6)
+        # self.davinciArmRight.executeStampedPoseGripperTrajectory(userdata.new_traj_R[6])
+        # rospy.sleep(1)
+        # self.wait()
 
-        rospy.sleep(1)
-        self.left_arm_executing = True
-        self.pub.publish(7)
-        self.davinciArmRight.executeStampedPoseGripperTrajectory(userdata.new_traj_R[7])
-        rospy.sleep(1)
-        self.wait()
+        # rospy.sleep(1)
+        # self.left_arm_executing = True
+        # self.pub.publish(7)
+        # self.davinciArmRight.executeStampedPoseGripperTrajectory(userdata.new_traj_R[7])
+        # rospy.sleep(1)
+        # self.wait()
 
+        # Left arm pulls away to prevent collisions
+        # self.left_arm.wiggle()
+        # rospy.sleep(1)
+
+        self.left_arm.pull_away()
+        rospy.sleep(1)
+        self.pub3.publish(True)
+        rospy.sleep(2)
+
+        print "Final cut", self.final_cut
+        if self.final_cut:
+            self.execute_final_cut()
+
+        # Stop the left arm
         self.pub2.publish(True)
 
         return 'abridged_state_machine'
+
+
+# class LiftGauze(MasterClass):
+#     def __init__(self, davinciArmRight, left_arm):
+#         super(self.__class__, self).__init__()
+#         smach.State.__init__(self, outcomes = ['success'])
+#         self.davinciArmRight = davinciArmRight
+#         self.left_arm = left_arm
+
+#     def execute(self, userdata):
+
+#         # Wiggle the left arm
+#         # self.left_arm.wiggle()
+#         return 'success'
+
+# class CheckCompleteCut(MasterClass):
+#     def __init__(self, davinciArmRight, left_arm):
+#         super(self.__class__, self).__init__()
+#         smach.State.__init__(self, outcomes = ['success', 'failure'])
+#         self.davinciArmRight = davinciArmRight
+#         self.left_arm = left_arm
+
+#     def execute(self, userdata):
+#         return 'success'
+
+# class IdentifyLastCutPoint(MasterClass):
+#     def __init__(self, davinciArmRight, left_arm):
+#         super(self.__class__, self).__init__()
+#         smach.State.__init__(self, outcomes = ['success'])
+#         self.davinciArmRight = davinciArmRight
+#         self.left_arm = left_arm
+
+#     def execute(self, userdata):
+#         return 'success'
+
+# class CutLast(MasterClass):
+#     def __init__(self, davinciArmRight, left_arm):
+#         super(self.__class__, self).__init__()
+#         smach.State.__init__(self, outcomes = ['success'])
+#         self.davinciArmRight = davinciArmRight
+#         self.left_arm = left_arm
+
+#     def execute(self, userdata):
+#         # preCutPoint = self.davinciArmRight.getGripperPose()
+#         # preCutPoint.position.y += 0.005
+#         # self.davinciArmRight.setGripperPositionDaVinci(1)
+#         # self.davinciArmRight.executeInterpolatedTrajectory(preCutPoint)
+#         # cutPoint = self.davinciArmRight.getGripperPose()
+#         # self.davinciArmRight.setGripperPositionDaVinci(-2)
+#         # self.davinciArmRight.executeInterpolatedTrajectory(cutPoint)
+#         return 'success'
 
 class CheckPostion3(MasterClass):
     def __init__(self, davinciArmRight):

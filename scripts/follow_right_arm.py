@@ -18,6 +18,7 @@ from std_msgs.msg import Int16, Bool
 
 import pickle
 import IPython
+import tfx
 
 from multiprocessing import Pool
 
@@ -33,6 +34,7 @@ class Follower(object):
         self.sm_complete = False
         self.sub2 = rospy.Subscriber("/circle/sm_complete", Bool, self.sm_complete_cb)
         print "Follower completed initializing"
+        self.pub2 = rospy.Publisher("circle_cut/capture_after_image", Bool)
 
     def sm_complete_cb(self, msg):
         print "SM Complete:", msg
@@ -46,6 +48,24 @@ class Follower(object):
         self.davinciArmLeft.executeStampedPoseGripperTrajectory(self.traj[msg.data])
         rospy.sleep(1)
         self.pub.publish(False)
+
+    def wiggle(self):
+        startPose = self.davinciArmLeft.getGripperPose()
+        newPose = tfx.pose(startPose, copy = True)
+        newPose.position.x -= 0.008
+        newPose.position.y += 0.008
+        self.davinciArmLeft.goToGripperPose(newPose, startPose=startPose, speed = 0.01)
+        self.pub2.publish(True)
+        rospy.sleep(1)
+        self.davinciArmLeft.goToGripperPose(startPose, startPose = newPose, speed = 0.01)
+        rospy.sleep(1)
+
+    def pull_away(self):
+        currPose = self.davinciArmLeft.getGripperPose()
+        newPose = tfx.pose(currPose, copy = True)
+        newPose.position.y += 0.012
+        self.davinciArmLeft.goToGripperPose(newPose, startPose = currPose, speed = 0.01)
+        rospy.sleep(1)
 
 if __name__ == '__main__':
     # rospy.init_node('Follower',anonymous=False)
