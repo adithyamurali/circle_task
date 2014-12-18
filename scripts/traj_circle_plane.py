@@ -40,7 +40,7 @@ def main():
     samples = []
     output_file_name = "circle_plane_samples.p"
     collect_sample = True
-    cut_threshold_angle_3 = -2 # This value was found by sequential convex optimization
+    cut_threshold_angle_3 = -2
     cut_threshold_angle_5 = -2
     open_threshold_angle_3 = 0.8
     open_threshold_angle_5 = 1

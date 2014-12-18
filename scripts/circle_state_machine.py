@@ -108,41 +108,6 @@ class MasterClass:
                 ExecutePartialTraj3(self.davinciArmRight, traj, left_arm),
                 transitions={'abridged_state_machine':'SUCCESS'}, remapping ={'new_traj_R':'sm_data1'})
 
-            # smach.StateMachine.add('EXECUTE_PARTIAL_TRAJ_3',
-            #     ExecutePartialTraj3(self.davinciArmRight, traj, left_arm),
-            #     transitions={'looping':'CHECK_POSITION_3', 'abridged_state_machine':'SUCCESS'})
-            # smach.StateMachine.add('CHECK_POSITION_3',
-            #     CheckPostion3(self.davinciArmRight),
-            #     transitions={'success':'EXECUTE_PARTIAL_TRAJ_3', 'above': 'WARP_ABOVE_3', 'below': 'WARP_BELOW_3'})
-            # smach.StateMachine.add('WARP_ABOVE_3',
-            #     WarpAbove3(self.davinciArmRight),
-            #     transitions={'success':'MOVE_ABOVE_3'})
-            # smach.StateMachine.add('MOVE_ABOVE_3',
-            #     MoveAbove3(self.davinciArmRight),
-            #     transitions={'success':'CHECK_POSITION_3'})
-            # smach.StateMachine.add('WARP_BELOW_3',
-            #     WarpBelow3(self.davinciArmRight),
-            #     transitions={'success':'MOVE_BELOW_3'})
-            # smach.StateMachine.add('MOVE_BELOW_3',
-            #     MoveBelow3(self.davinciArmRight),
-            #     transitions={'success':'CHECK_POSITION_3'})
-
-            # smach.StateMachine.add('LIFT_GAUZE',
-            #     LiftGauze(self.davinciArmRight, traj, left_arm),
-            #     transitions={'success':'CHECK_COMPLETE_CUT'})
-
-            # smach.StateMachine.add('CHECK_COMPLETE_CUT',
-            #     CheckCompleteCut(self.davinciArmRight, traj, left_arm),
-            #     transitions={'success':'SUCCESS', 'failure':'IDENTIFT_LAST_CUT_POINT'})
-
-            # smach.StateMachine.add('IDENTIFT_LAST_CUT_POINT',
-            #     IdentifyLastCutPoint(self.davinciArmRight, traj, left_arm),
-            #     transitions={'success':'CUT_LAST'})
-
-            # smach.StateMachine.add('CUT_LAST',
-            #     CutLast(self.davinciArmRight, traj, left_arm),
-            #     transitions={'success':'LIFT_GAUZE'})
-
     def run(self):
         self.davinciArmRight.start()
         rospy.sleep(2)

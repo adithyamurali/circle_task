@@ -38,7 +38,6 @@ def main():
     curr_time_frame = time_frames[time_index]
 
     for topic, msg, t in bag.read_messages(topics=[pose_topic_R, gripper_angle_topic_R, pose_topic_L, gripper_angle_topic_L]):
-        IPython.embed()
         if topic == pose_topic_R:
             curr_pose_R = tfx.pose(msg)
             complete_pairing_R = False
@@ -53,9 +52,12 @@ def main():
             pose_and_angle_tuples_L[j] = (curr_pose_L, msg.data)
             j += 1
             complete_pairing_L = True
-        IPython.embed()
-        if not within_time_frame(t.to_secs(), curr_time_frame):
+        if not within_time_frame(t.to_sec(), curr_time_frame):
+            print "X"
+            IPython.embed()
             if complete_pairing_L and complete_pairing_R:
+                print "Y"
+                IPython.embed()
                 assert len(pose_and_angle_tuples_L.values()) == len(pose_and_angle_tuples_R.values())
                 partial_traj = (pose_and_angle_tuples_L.values(), 
                     pose_and_angle_tuples_R.values())
@@ -66,38 +68,44 @@ def main():
                 pose_and_angle_tuples_L = {}
             else:
                 continue
-
+    if (len(pose_and_angle_tuples_L) != 0) or (len(pose_and_angle_tuples_R) != 0):
+        partial_traj = (pose_and_angle_tuples_L.values(), pose_and_angle_tuples_R.values())
+        traj[time_index] = partial_traj
     # # Robot traj is a list of tuple(Pose, Gripper Open Angle)
+    print "End"
+    IPython.embed()
     pickle.dump(traj, open(output_bag_name, 'wb' ))
 
     bag.close()
 
 def within_time_frame(t, time_frame):
     if time_frame[0] is None:
-        return t < time_frame[1]
+        return t <= time_frame[1]
     elif time_frame[1] is None:
-        return t > time_frame[0]
+        return t >= time_frame[0]
     else:
-        return (t > time_frame[0]) and (t < time_frame[1])
+        return (t >= time_frame[0]) and (t <= time_frame[1])
 
 def create_time_frames():
-    frames = {}
-    time_0 = None
-    time_1 = None
-    time_2 = None
-    time_3 = None
-    time_4 = None
-    time_5 = None
-    time_6 = None
-    time_7 = None
-    time_8 = None
-    time_limits = [time_0, time_1, time_2, time_3, time_4, time_5, time_6, time_7, time_8]
+    time_frames = {}
+    time_0 = 1409163345.1170287
+    time_1 = 1409163381.539586
+    time_2 = 1409163416.626796
+    time_3 = 1409163433.579204 
+    time_4 = 1409163461.470884
+    time_5 = 1409163496.336294
+    time_6 = 1409163539.732363
+    time_7 = 1409163542.867822
+    time_8 = 1409163558.397697
+    time_9 = 1409163566.177478
+
+    time_limits = [time_0, time_1, time_2, time_3, time_4, time_5, time_6, time_7, time_8, time_9]
     for i in range(len(time_limits)):
         if (i + 1) == len(time_limits):
-            frames[i] = (time_limits[i], None)
+            time_frames[i] = (time_limits[i], None)
         else:
-            frames[i] = (time_limits[i], time_limits[i+1])
-    return frames
+            time_frames[i] = (time_limits[i], time_limits[i+1])
+    return time_frames
 
 if __name__ == '__main__':
     main()

@@ -27,7 +27,6 @@ class Follower(object):
         print "Follower Init"
         self.sub = rospy.Subscriber("/circle/command_left", Int16, self.phase_cb)
         self.davinciArmLeft = davinciArmLeft
-        # self.davinciArmLeft = None
         self.traj = traj
         print "Set traj"
         self.pub = rospy.Publisher("/circle/command_complete", Bool)
@@ -49,29 +48,28 @@ class Follower(object):
         rospy.sleep(1)
         self.pub.publish(False)
 
-    def wiggle(self):
-        startPose = self.davinciArmLeft.getGripperPose()
-        newPose = tfx.pose(startPose, copy = True)
-        newPose.position.x -= 0.008
-        newPose.position.y += 0.008
-        self.davinciArmLeft.goToGripperPose(newPose, startPose=startPose, speed = 0.01)
-        self.pub2.publish(True)
-        rospy.sleep(1)
-        self.davinciArmLeft.goToGripperPose(startPose, startPose = newPose, speed = 0.01)
-        rospy.sleep(1)
-
     def pull_away(self):
         currPose = self.davinciArmLeft.getGripperPose()
         newPose = tfx.pose(currPose, copy = True)
         newPose.position.y += 0.012
+        newPose.position.x += -0.02
+        self.davinciArmLeft.goToGripperPose(newPose, startPose = currPose, speed = 0.01)
+        rospy.sleep(1)
+
+    def pull_back(self):
+        currPose = self.davinciArmLeft.getGripperPose()
+        newPose = tfx.pose(currPose, copy = True)
+        newPose.position.y += 0.01
+        newPose.position.x += 0.015
+        self.davinciArmLeft.goToGripperPose(newPose, startPose = currPose, speed = 0.01)
+        rospy.sleep(1)
+
+    def pull_away_less(self):
+        currPose = self.davinciArmLeft.getGripperPose()
+        newPose = tfx.pose(currPose, copy = True)
+        newPose.position.y += 0.006
         self.davinciArmLeft.goToGripperPose(newPose, startPose = currPose, speed = 0.01)
         rospy.sleep(1)
 
 if __name__ == '__main__':
-    # rospy.init_node('Follower',anonymous=False)
-    # input_file_name = sys.argv[1]
-    # Follower(input_file_name)
-    # rospy.spin()
-    # a = get_full_traj()
-    # IPython.embed()
     pass
